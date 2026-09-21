@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Leitor SEFAZ</title>
+<style>
+  /* ===== Variaveis de tema (paleta de cores escura) ===== */
+  :root {
+    --bg: #0f172a;          /* fundo geral da pagina */
+    --card: #1e293b;        /* fundo dos cartoes */
+    --border: #334155;      /* cor das bordas */
+    --text: #e2e8f0;        /* texto principal */
+    --muted: #94a3b8;       /* texto secundario/apagado */
+    --accent: #22c55e;      /* verde de destaque (botoes/ativos) */
+    --accent-hover: #16a34a;/* verde ao passar o mouse */
+    --danger: #ef4444;      /* vermelho para erros */
+  }
+  /* Todos os elementos usam box-sizing border-box (padding dentro da largura) */
+  * { box-sizing: border-box; }
+  /* Estilo base da pagina */
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  /* Cabecalho: titulo a esquerda e abas a direita, com quebra em telas pequenas */
+  header {
+    max-width: 960px;
+    margin: 0 auto 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  h1 { font-size: 1.5rem; margin: 0; }
+  /* Barra de abas (navegacao entre as telas) */
+  .tabs { display: flex; gap: 8px; }
+  /* Estilo base de cada aba/botao de navegacao */
+  .tab {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.15s;
+  }
+  .tab:hover { border-color: var(--accent); }
+  /* Aba selecionada no momento */
+  .tab.active { background: var(--accent); color: #052e16; border-color: var(--accent); font-weight: 600; }
+  /* Container central que limita a largura do conteudo */
+  main { max-width: 960px; margin: 0 auto; }
+  /* Paineis ficam escondidos por padrao; so o ativo aparece */
+  .panel { display: none; }
+  .panel.active { display: block; }
+  /* Cartao branco-escuro usado para agrupar conteudo */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 { margin: 0 0 16px; font-size: 1.15rem; }
+  /* Botao principal (verde, largura total) */
+  button.primary {
+    background: var(--accent);
+    color: #052e16;
+    border: none;
+    padding: 14px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.primary:hover { background: var(--accent-hover); }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #qr-reader { width: 100%; border-radius: 8px; overflow: hidden; margin-top: 16px; }
+  #qr-result {
+    margin-top: 16px;
+    padding: 14px;
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    word-break: break-all;
+    font-family: ui-monospace, monospace;
+    font-size: 0.9rem;
+    min-height: 20px;
+    color: var(--muted);
+  }
+  /* Aplicado quando ha um codigo lido (fica verde) */
+  #qr-result.filled { color: var(--accent); border-color: var(--accent); }
+  /* Grade de 2 colunas para o formulario */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  /* Cada campo do formulario (label em cima, input embaixo) */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  /* Campo que ocupa a linha inteira */
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: 0.85rem; color: var(--muted); }
+  /* Estilo padrao dos inputs */
+  input {
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+  /* Destaque verde no input em foco */
+  input:focus { outline: none; border-color: var(--accent); }
+  /* Inputs somente leitura (ex: data automatica) ficam apagados */
+  input[readonly] { color: var(--muted); }
+  /* Linha de botoes de acao do formulario */
+  .actions { margin-top: 20px; display: flex; gap: 12px; }
+  /* Tabelas de listagem */
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  /* Realce da linha ao passar o mouse */
+  tbody tr:hover { background: #0b1220; }
+  /* Mensagem mostrada quando uma lista esta vazia */
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 16px 0; }
+  /* Notificacao flutuante (toast) que aparece na parte inferior */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--accent);
+    color: #052e16;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+  /* Estado visivel do toast */
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* Variacao do toast para erros (vermelho) */
+  .toast.error { background: var(--danger); color: #fff; }
+  /* Ajustes responsivos para telas pequenas (celular) */
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+<!-- Cabecalho com titulo e navegacao por abas -->
+<header>
+  <h1>Leitor SEFAZ</h1>
+  <nav class="tabs">
+    <!-- data-tab liga cada botao ao painel correspondente -->
+    <button class="tab active" data-tab="scan">Ler QRCODE SEFAZ</button>
+    <button class="tab" data-tab="product">Adicionar produto unico</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ===== Painel 1: leitura de QR Code da SEFAZ ===== -->
+  <section id="panel-scan" class="panel active">
+    <div class="card">
+      <h2>Ler QRCODE SEFAZ</h2>
+      <p style="color: var(--muted); margin: 0 0 16px; font-size: 0.9rem;">
+        Aponte a câmera para o QR Code da nota fiscal (SEFAZ).
+      </p>
+      <!-- Botoes para iniciar/parar a camera (alternados por JS) -->
+      <button id="btn-start-scan" class="primary">Iniciar leitura</button>
+      <button id="btn-stop-scan" class="secondary" style="display:none; margin-top:12px; width:100%;">Parar leitura</button>
+      <!-- A biblioteca html5-qrcode injeta o video aqui -->
+      <div id="qr-reader"></div>
+      <!-- Mostra o conteudo bruto do QR Code lido -->
+      <div id="qr-result">Nenhum código lido ainda.</div>
+
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);" />
+      <p style="color: var(--muted); margin: 0 0 10px; font-size: 0.9rem;">
+        Ou informe a chave de acesso da nota fiscal (44 dígitos numéricos):
+      </p>
+      <div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
+        <input
+          id="access-key-input"
+          type="text"
+          inputmode="numeric"
+          maxlength="44"
+          placeholder="44 dígitos numéricos"
+          style="flex:1; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:1rem; background:var(--surface); color:var(--text); font-family:monospace; letter-spacing:0.05em;"
+        />
+        <button id="btn-access-key" class="primary" style="white-space:nowrap;">Consultar chave</button>
+      </div>
+      <div id="access-key-error" style="display:none; color:#e53e3e; font-size:0.85rem; margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Produtos da nota</h2>
+      <!-- Mensagem exibida enquanto nao ha produtos -->
+      <div id="sefaz-empty" class="empty">Nenhum produto carregado.</div>
+      <!-- Tabela preenchida dinamicamente apos a consulta a SEFAZ -->
+      <table id="sefaz-table" style="display:none;">
+        <thead>
+          <tr><th>Produto</th><th>Preço</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Painel 2: cadastro manual de produtos ===== -->
+  <section id="panel-product" class="panel">
+    <div class="card">
+      <h2>Adicionar produto unico</h2>
+      <!-- Formulario de cadastro; autocomplete off evita sugestoes do navegador -->
+      <form id="product-form" class="form-grid" autocomplete="off">
+        <div class="field">
+          <label for="mercado">Mercado</label>
+          <input id="mercado" name="mercado" type="text" required />
+        </div>
+        <div class="field">
+          <label for="endereco">Endereço</label>
+          <input id="endereco" name="endereco" type="text" required />
+        </div>
+        <div class="field">
+          <label for="produto">Nome produto</label>
+          <input id="produto" name="produto" type="text" required />
+        </div>
+        <div class="field">
+          <label for="kgL">kg/L</label>
+          <input id="kgL" name="kgL" type="number" step="0.001" min="0" required />
+        </div>
+        <div class="field full">
+          <label for="data">Data (automática)</label>
+          <!-- Data preenchida automaticamente pelo JS (somente leitura) -->
+          <input id="data" name="data" type="date" readonly />
+        </div>
+        <div class="actions full" style="grid-column: 1 / -1;">
+          <button type="submit" class="primary">Adicionar produto unico</button>
+          <button type="reset" class="secondary">Limpar</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Produtos adicionados</h2>
+      <!-- Mensagem exibida enquanto a tabela estiver vazia -->
+      <div id="product-list-empty" class="empty">Nenhum produto adicionado.</div>
+      <!-- Linhas inseridas dinamicamente ao enviar o formulario -->
+      <table id="product-table" style="display:none;">
+        <thead>
+          <tr><th>Data</th><th>Mercado</th><th>Endereço</th><th>Produto</th><th>kg/L</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- Elemento unico reutilizado para notificacoes (toast) -->
+<div id="toast" class="toast"></div>
+
+<!-- Biblioteca externa que faz a leitura do QR Code pela camera -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+/* ===== Logica principal da aplicacao (IIFE para nao poluir o escopo global) ===== */
+(function () {
+  "use strict";
+
+  var DEBUG = true;
+
+  /* --- Navegacao por abas --- */
+  /* Seleciona todos os botoes de aba e mapeia os paineis pelo nome do data-tab */
+  var tabs = document.querySelectorAll(".tab");
+  var panels = {
+    scan: document.getElementById("panel-scan"),
+    product: document.getElementById("panel-product")
+  };
+
+  /* Ao clicar em uma aba: remove "active" de todas, ativa a clicada e exibe o painel correspondente.
+     Se sair da aba de scan enquanto a camera estiver ligada, para a leitura. */
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      tabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      Object.keys(panels).forEach(function (k) { panels[k].classList.remove("active"); });
+      panels[tab.dataset.tab].classList.add("active");
+      if (tab.dataset.tab !== "scan" && html5QrCode && scannerRunning) {
+        stopScan();
+      }
+    });
+  });
+
+  /* --- Sistema de notificacao (toast) --- */
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  /* Exibe uma mensagem flutuante por 2,5 segundos; isError=true deixa o toast vermelho */
+  function toast(msg, isError) {
+    toastEl.textContent = msg;
+    toastEl.classList.toggle("error", !!isError);
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2500);
+  }
+
+  /* --- Leitor de QR Code --- */
+  var html5QrCode = null;      /* instancia da biblioteca Html5Qrcode */
+  var scannerRunning = false;  /* controla se a camera esta ativa */
+  var btnStart = document.getElementById("btn-start-scan");
+  var btnStop = document.getElementById("btn-stop-scan");
+  var qrResult = document.getElementById("qr-result");
+  var sefazTable = document.getElementById("sefaz-table");
+  var sefazEmpty = document.getElementById("sefaz-empty");
+
+  /* Chamada pela biblioteca quando um QR Code e lido com sucesso:
+     exibe o texto bruto, para a camera e envia para a API */
+  function onScanSuccess(decodedText) {
+    qrResult.textContent = decodedText;
+    qrResult.classList.add("filled");
+    stopScan();
+    if (DEBUG) {
+      window.open(decodedText, "_blank");
+      return;
+    }
+    consultarSefaz(decodedText);
+  }
+
+  /* Envia a URL contida no QR Code para o backend (/api/scan via POST) */
+  function consultarSefaz(rawUrl) {
+    toast("Enviando QR Code para o Firebase...");
+    fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: rawUrl })
+    })
+      .then(function (res) { return res.json().then(function (d) { return { status: res.status, data: d }; }); })
+      .then(function (out) {
+        if (!out.data.ok) {
+          toast(out.data.error || "Falha na validação", true);
+          return;
+        }
+        toast(out.data.message || "QR Code salvo com sucesso!");
+      })
+      .catch(function () { toast("Erro ao contatar o servidor", true); });
+  }
+
+  /* Limpa a tabela e insere uma linha para cada produto retornado pela SEFAZ.
+     Oculta a mensagem de "vazio" se houver produtos, e vice-versa. */
+  function renderSefazProducts(products) {
+    var tbody = sefazTable.querySelector("tbody");
+    tbody.innerHTML = "";
+    products.forEach(function (p) {
+      var tr = document.createElement("tr");
+      var tdName = document.createElement("td");
+      tdName.textContent = p.name;
+      var tdPrice = document.createElement("td");
+      /* Formata o preco no padrao brasileiro: R$ 0,00 */
+      tdPrice.textContent = "R$ " + p.price.toFixed(2).replace(".", ",");
+      tr.appendChild(tdName);
+      tr.appendChild(tdPrice);
+      tbody.appendChild(tr);
+    });
+    var has = products.length > 0;
+    sefazTable.style.display = has ? "table" : "none";
+    sefazEmpty.style.display = has ? "none" : "block";
+  }
+
+  /* Falhas de leitura por frame sao ignoradas (comportamento normal durante o scan) */
+  function onScanFailure() { /* ignore per-frame failures */ }
+
+  /* Inicia a camera traseira (environment) a 10 fps com caixa de leitura 250x250 px.
+     Ao iniciar com sucesso, troca os botoes Iniciar/Parar. */
+  function startScan() {
+    if (!window.Html5Qrcode) {
+      toast("Biblioteca de leitura não carregada", true);
+      return;
+    }
+    /* Cria a instancia apenas uma vez, reutilizando nas proximas leituras */
+    if (!html5QrCode) {
+      html5QrCode = new Html5Qrcode("qr-reader");
+    }
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      onScanSuccess,
+      onScanFailure
+    ).then(function () {
+      scannerRunning = true;
+      btnStart.style.display = "none";
+      btnStop.style.display = "block";
+    }).catch(function (err) {
+      toast("Erro ao acessar câmera: " + err, true);
+    });
+  }
+
+  /* Para a camera e restaura o botao Iniciar.
+     Trata tanto o sucesso quanto o erro do stop() da biblioteca. */
+  function stopScan() {
+    if (!html5QrCode || !scannerRunning) { return; }
+    html5QrCode.stop().then(function () {
+      scannerRunning = false;
+      btnStart.style.display = "block";
+      btnStop.style.display = "none";
+    }).catch(function () {
+      scannerRunning = false;
+      btnStart.style.display = "block";
+      btnStop.style.display = "none";
+    });
+  }
+
+  /* Liga os botoes Iniciar e Parar as funcoes de controle da camera */
+  btnStart.addEventListener("click", startScan);
+  btnStop.addEventListener("click", stopScan);
+
+  /* --- Consulta por chave de acesso (44 digitos) --- */
+  var accessKeyInput = document.getElementById("access-key-input");
+  var accessKeyError = document.getElementById("access-key-error");
+  var btnAccessKey = document.getElementById("btn-access-key");
+
+  accessKeyInput.addEventListener("input", function () {
+    accessKeyInput.value = accessKeyInput.value.replace(/\D/g, "").slice(0, 44);
+    accessKeyError.style.display = "none";
+  });
+
+  btnAccessKey.addEventListener("click", function () {
+    var key = accessKeyInput.value.trim();
+    if (key.length !== 44) {
+      accessKeyError.textContent = "A chave de acesso deve ter exatamente 44 dígitos numéricos.";
+      accessKeyError.style.display = "block";
+      return;
+    }
+    accessKeyError.style.display = "none";
+    qrResult.textContent = "Chave: " + key;
+    qrResult.classList.add("filled");
+    if (DEBUG) {
+      var debugUrl = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nrChave=" + key;
+      window.open(debugUrl, "_blank");
+      return;
+    }
+    toast("Enviando chave de acesso para o Firebase...");
+    fetch("/api/scan-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: key })
+    })
+      .then(function (res) { return res.json().then(function (d) { return { status: res.status, data: d }; }); })
+      .then(function (out) {
+        if (!out.data.ok) {
+          toast(out.data.error || "Falha na validação", true);
+          return;
+        }
+        toast(out.data.message || "Chave salva com sucesso!");
+        accessKeyInput.value = "";
+      })
+      .catch(function () { toast("Erro ao contatar o servidor", true); });
+  });
+
+  /* --- Campo de data automatica --- */
+  var dataInput = document.getElementById("data");
+  /* Preenche o input de data com a data de hoje no formato YYYY-MM-DD */
+  function setToday() {
+    var d = new Date();
+    var mm = String(d.getMonth() + 1).padStart(2, "0");
+    var dd = String(d.getDate()).padStart(2, "0");
+    dataInput.value = d.getFullYear() + "-" + mm + "-" + dd;
+  }
+  setToday(); /* executado ao carregar a pagina */
+
+  /* --- Formulario de produto unico --- */
+  var form = document.getElementById("product-form");
+  var table = document.getElementById("product-table");
+  var tbody = table.querySelector("tbody");
+  var emptyEl = document.getElementById("product-list-empty");
+
+  /* Alterna a visibilidade da tabela e da mensagem de lista vazia */
+  function renderEmpty() {
+    var has = tbody.children.length > 0;
+    table.style.display = has ? "table" : "none";
+    emptyEl.style.display = has ? "none" : "block";
+  }
+  renderEmpty(); /* estado inicial ao carregar a pagina */
+
+  /* Ao submeter o formulario: valida os campos, cria uma linha na tabela,
+     exibe confirmacao, reseta o form e repoe a data de hoje */
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var mercado = document.getElementById("mercado").value.trim();
+    var endereco = document.getElementById("endereco").value.trim();
+    var produto = document.getElementById("produto").value.trim();
+    var kgL = document.getElementById("kgL").value.trim();
+    var data = dataInput.value;
+
+    /* Validacao: todos os campos sao obrigatorios */
+    if (!mercado || !endereco || !produto || kgL === "") {
+      toast("Preencha todos os campos", true);
+      return;
+    }
+
+    /* Cria uma linha com as 5 colunas na ordem correta */
+    var tr = document.createElement("tr");
+    [data, mercado, endereco, produto, kgL].forEach(function (val) {
+      var td = document.createElement("td");
+      td.textContent = val;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+    renderEmpty();
+    toast("Produto adicionado");
+    form.reset();
+    setToday(); /* recoloca a data apos o reset */
+  });
+
+  /* Apos o reset do formulario (botao Limpar), restaura a data automatica.
+     setTimeout garante que o reset termine antes de setar o valor. */
+  form.addEventListener("reset", function () {
+    setTimeout(setToday, 0);
+  });
+})();
+</script>
+</body>
+</html>
