@@ -1,10 +1,11 @@
 require("dotenv").config();
-const admin = require("firebase-admin");
+const { initializeApp, getApps, cert } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const puppeteer = require("puppeteer");
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n")
@@ -12,7 +13,7 @@ if (!admin.apps.length) {
   });
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
 async function extractNotaData(page) {
   return await page.evaluate(() => {
@@ -133,7 +134,7 @@ async function startScraper() {
             await doc.ref.update({
               status: "concluido",
               dados: extraidos,
-              processadoEm: admin.firestore.FieldValue.serverTimestamp()
+              processadoEm: FieldValue.serverTimestamp()
             });
           } catch (err) {
             console.error(`Erro ao processar leitura [${doc.id}]:`, err.message);
