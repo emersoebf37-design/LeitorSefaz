@@ -47,6 +47,7 @@ module.exports = async function handler(req, res) {
     await db.collection("leituras").add({
       tipo: "qrcode",
       url: check.url.href,
+      status: "pendente",
       registradoEm: admin.firestore.FieldValue.serverTimestamp()
     });
     return res.status(200).json({

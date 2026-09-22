@@ -164,6 +164,7 @@ function handleScanKey(req, res) {
     db.collection("leituras").add({
       tipo: "chave_acesso",
       chave: key,
+      status: "pendente",
       registradoEm: admin.firestore.FieldValue.serverTimestamp()
     })
       .then(() => {
@@ -216,6 +217,7 @@ function handleScan(req, res) {
     db.collection("leituras").add({
       tipo: "qrcode",
       url: check.url.href,
+      status: "pendente",
       registradoEm: admin.firestore.FieldValue.serverTimestamp()
     })
       .then(() => {
