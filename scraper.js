@@ -43,6 +43,16 @@ async function extractNotaData(page) {
       }
     });
 
+    let dataEmissao = "";
+    const allListItems = document.querySelectorAll("li");
+    allListItems.forEach((li) => {
+      const txt = cleanText(li.innerText);
+      const match = txt.match(/Emiss[aã]o:\s*(\d{2}\/\d{2}\/\d{4}(?:\s+\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:\d{2})?)?)/i);
+      if (match && !dataEmissao) {
+        dataEmissao = match[1].trim();
+      }
+    });
+
     const produtos = [];
     const rows = document.querySelectorAll("#tabResult tbody tr, #tabResult tr");
     rows.forEach((row) => {
@@ -80,8 +90,26 @@ async function extractNotaData(page) {
         cnpj,
         endereco
       },
+      dataEmissao,
       produtos
     };
+  });
+}
+
+function waitForCaptchaResolution(docRef) {
+  return new Promise((resolve, reject) => {
+    const unsubscribe = docRef.onSnapshot((snapshot) => {
+      const data = snapshot.data() || {};
+      if (data.status === "captcha_resolvido" && data.captchaResposta) {
+        unsubscribe();
+        resolve(data.captchaResposta);
+      }
+    }, reject);
+
+    setTimeout(() => {
+      unsubscribe();
+      reject(new Error("Tempo esgotado aguardando resolução do CAPTCHA"));
+    }, 120000);
   });
 }
 
@@ -121,9 +149,42 @@ async function startScraper() {
                 timeout: 60000
               });
 
-              const inputSelector = 'input[name="chaveAcesso"], input#chaveAcesso, input[name="chave"], input[type="text"]';
+              const inputSelector = '#chaveAcesso';
               await page.waitForSelector(inputSelector, { timeout: 15000 });
-              await page.type(inputSelector, data.chave);
+              await page.click(inputSelector);
+              await page.type(inputSelector, data.chave, { delay: 20 });
+
+              // Verifica se existe imagem de CAPTCHA
+              const captchaImgSelector = 'img[src*="captcha"], #imgCaptcha, img.captcha, .captcha-img img';
+              const captchaEl = await page.$(captchaImgSelector);
+
+              if (captchaEl) {
+                console.log("CAPTCHA detectado! Capturando imagem para envio ao cliente...");
+                const imgBuffer = await captchaEl.screenshot({ encoding: "base64" });
+                const base64Img = `data:image/png;base64,${imgBuffer}`;
+
+                await doc.ref.update({
+                  status: "aguardando_captcha",
+                  captchaImg: base64Img
+                });
+
+                console.log("Aguardando resposta do usuário no frontend...");
+                const respostaTexto = await waitForCaptchaResolution(doc.ref);
+                console.log(`Resposta do CAPTCHA recebida: ${respostaTexto}`);
+
+                const captchaInputSelector = 'input[name*="captcha"], input#captcha, input.captcha';
+                const capInput = await page.$(captchaInputSelector);
+                if (capInput) {
+                  await capInput.type(respostaTexto, { delay: 20 });
+                }
+              }
+
+              const btnSelector = '#consultarBtn';
+              await page.waitForSelector(btnSelector, { timeout: 15000 });
+              await Promise.all([
+                page.waitForNavigation({ waitUntil: "networkidle2", timeout: 45000 }).catch(() => {}),
+                page.click(btnSelector)
+              ]);
             }
 
             await page.waitForSelector(".txtCenter, #tabResult", { timeout: 30000 });

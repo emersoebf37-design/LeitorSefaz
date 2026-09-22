@@ -204,6 +204,17 @@
         <button id="btn-access-key" class="primary" style="white-space:nowrap;">Consultar chave</button>
       </div>
       <div id="access-key-error" style="display:none; color:#e53e3e; font-size:0.85rem; margin-top:6px;"></div>
+
+      <!-- Secao de Resolucao de Captcha -->
+      <div id="captcha-container" style="display:none; margin-top:20px; padding:16px; background:#0b1220; border:1px solid var(--border); border-radius:8px;">
+        <h3 style="margin-top:0; font-size:1rem; color:var(--accent);">Resolução de CAPTCHA Requerida</h3>
+        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:12px;">Digite os caracteres exibidos na imagem abaixo para prosseguir:</p>
+        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+          <img id="captcha-img" src="" alt="Captcha" style="border:1px solid var(--border); border-radius:4px; max-height:60px; background:#fff;" />
+          <input id="captcha-input" type="text" placeholder="Digite o captcha" style="flex:1; min-width:140px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text);" />
+          <button id="btn-submit-captcha" class="primary" style="width:auto; padding:10px 20px;">Enviar Resposta</button>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -463,8 +474,73 @@
         }
         toast(out.data.message || "Chave salva com sucesso!");
         accessKeyInput.value = "";
+        if (out.data.id) {
+          monitorarStatus(out.data.id);
+        }
       })
       .catch(function () { toast("Erro ao contatar o servidor", true); });
+  });
+
+  /* --- Monitoramento de Captcha e Status --- */
+  var currentDocId = null;
+  var monitorInterval = null;
+  var captchaContainer = document.getElementById("captcha-container");
+  var captchaImg = document.getElementById("captcha-img");
+  var captchaInput = document.getElementById("captcha-input");
+  var btnSubmitCaptcha = document.getElementById("btn-submit-captcha");
+
+  function monitorarStatus(id) {
+    currentDocId = id;
+    clearInterval(monitorInterval);
+    monitorInterval = setInterval(function () {
+      fetch("/api/captcha?id=" + id)
+        .then(function (res) { return res.json(); })
+        .then(function (res) {
+          if (!res.ok || !res.data) return;
+          var data = res.data;
+
+          if (data.status === "aguardando_captcha" && data.captchaImg) {
+            captchaImg.src = data.captchaImg;
+            captchaContainer.style.display = "block";
+          } else if (data.status === "concluido") {
+            captchaContainer.style.display = "none";
+            clearInterval(monitorInterval);
+            toast("Nota processada com sucesso!");
+            if (data.dados && data.dados.produtos) {
+              renderSefazProducts(data.dados.produtos.map(function (p) {
+                return { name: p.nome, price: p.valorTotal || p.valorUnitario || 0 };
+              }));
+            }
+          } else if (data.status === "erro") {
+            captchaContainer.style.display = "none";
+            clearInterval(monitorInterval);
+            toast("Erro no processamento: " + (data.erro || ""), true);
+          }
+        })
+        .catch(function () {});
+    }, 3000);
+  }
+
+  btnSubmitCaptcha.addEventListener("click", function () {
+    var resp = captchaInput.value.trim();
+    if (!resp || !currentDocId) return;
+    toast("Enviando captcha...");
+    fetch("/api/captcha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: currentDocId, resposta: resp })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.ok) {
+          toast("Captcha enviado! Aguardando resultado...");
+          captchaContainer.style.display = "none";
+          captchaInput.value = "";
+        } else {
+          toast(res.error || "Erro ao enviar captcha", true);
+        }
+      })
+      .catch(function () { toast("Erro ao enviar captcha", true); });
   });
 
   /* --- Campo de data automatica --- */

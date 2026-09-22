@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    await db.collection("leituras").add({
+    const docRef = await db.collection("leituras").add({
       tipo: "chave_acesso",
       chave: key,
       status: "pendente",
@@ -36,6 +36,7 @@ module.exports = async function handler(req, res) {
     });
     return res.status(200).json({
       ok: true,
+      id: docRef.id,
       message: "Chave de acesso salva no Firebase com sucesso"
     });
   } catch (err) {
