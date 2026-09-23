@@ -169,6 +169,7 @@
     <!-- data-tab liga cada botao ao painel correspondente -->
     <button class="tab active" data-tab="scan">Ler QRCODE SEFAZ</button>
     <button class="tab" data-tab="product">Adicionar produto unico</button>
+    <button class="tab" data-tab="search">Pesquisar na base</button>
   </nav>
 </header>
 
@@ -278,6 +279,44 @@
       </table>
     </div>
   </section>
+
+  <!-- ===== Painel 3: pesquisa de produtos na base ===== -->
+  <section id="panel-search" class="panel">
+    <div class="card">
+      <h2>Pesquisar produtos na base</h2>
+      <p style="color: var(--muted); margin: 0 0 16px; font-size: 0.9rem;">
+        Consulte produtos cadastrados por nome (busca por aproximação).
+      </p>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Ex: azeite, feijao, leite..."
+          style="flex:1; min-width:200px;"
+        />
+        <button id="btn-search" class="primary" style="width:auto; padding:12px 24px;">Buscar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Resultados da pesquisa</h2>
+      <div id="search-empty" class="empty">Faça uma busca para exibir resultados.</div>
+      <div style="overflow-x:auto;">
+        <table id="search-table" style="display:none;">
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Razão Social</th>
+              <th>Endereço</th>
+              <th>Vl. Unitário</th>
+              <th>Data Emissão</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 </main>
 
 <!-- Elemento unico reutilizado para notificacoes (toast) -->
@@ -297,7 +336,8 @@
   var tabs = document.querySelectorAll(".tab");
   var panels = {
     scan: document.getElementById("panel-scan"),
-    product: document.getElementById("panel-product")
+    product: document.getElementById("panel-product"),
+    search: document.getElementById("panel-search")
   };
 
   /* Ao clicar em uma aba: remove "active" de todas, ativa a clicada e exibe o painel correspondente.
@@ -602,6 +642,93 @@
      setTimeout garante que o reset termine antes de setar o valor. */
   form.addEventListener("reset", function () {
     setTimeout(setToday, 0);
+  });
+
+  /* --- Painel de Pesquisa de Produtos --- */
+  var searchInput = document.getElementById("search-input");
+  var btnSearch = document.getElementById("btn-search");
+  var searchTable = document.getElementById("search-table");
+  var searchTbody = searchTable.querySelector("tbody");
+  var searchEmpty = document.getElementById("search-empty");
+
+  function executarBusca() {
+    var termo = searchInput.value.trim();
+    if (termo.length < 2) {
+      toast("Digite pelo menos 2 caracteres para buscar", true);
+      return;
+    }
+
+    toast("Pesquisando...");
+    searchEmpty.textContent = "Buscando produtos...";
+    searchEmpty.style.display = "block";
+    searchTable.style.display = "none";
+    searchTbody.innerHTML = "";
+
+    fetch("/api/search?q=" + encodeURIComponent(termo))
+      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (!res.ok) {
+          toast(res.error || "Erro na busca", true);
+          searchEmpty.textContent = res.error || "Erro ao buscar.";
+          return;
+        }
+
+        var list = res.resultados || [];
+        if (list.length === 0) {
+          searchEmpty.textContent = "Nenhum produto encontrado para '" + termo + "'.";
+          searchEmpty.style.display = "block";
+          searchTable.style.display = "none";
+          return;
+        }
+
+        list.forEach(function (item) {
+          var tr = document.createElement("tr");
+
+          var tdProd = document.createElement("td");
+          tdProd.textContent = item.nomeProduto;
+
+          var tdRazao = document.createElement("td");
+          tdRazao.textContent = item.razaoSocial;
+
+          var tdEnd = document.createElement("td");
+          tdEnd.textContent = item.endereco;
+
+          var tdVal = document.createElement("td");
+          if (item.valorUnitario !== null && item.valorUnitario !== undefined) {
+            tdVal.textContent = "R$ " + Number(item.valorUnitario).toFixed(2).replace(".", ",");
+          } else if (item.valorTotal !== null && item.valorTotal !== undefined) {
+            tdVal.textContent = "R$ " + Number(item.valorTotal).toFixed(2).replace(".", ",");
+          } else {
+            tdVal.textContent = "-";
+          }
+
+          var tdData = document.createElement("td");
+          tdData.textContent = item.dataEmissao || "-";
+
+          tr.appendChild(tdProd);
+          tr.appendChild(tdRazao);
+          tr.appendChild(tdEnd);
+          tr.appendChild(tdVal);
+          tr.appendChild(tdData);
+
+          searchTbody.appendChild(tr);
+        });
+
+        searchEmpty.style.display = "none";
+        searchTable.style.display = "table";
+        toast(list.length + " produto(s) encontrado(s)!");
+      })
+      .catch(function () {
+        searchEmpty.textContent = "Erro ao conectar com o servidor.";
+        toast("Erro na pesquisa", true);
+      });
+  }
+
+  btnSearch.addEventListener("click", executarBusca);
+  searchInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      executarBusca();
+    }
   });
 })();
 </script>
