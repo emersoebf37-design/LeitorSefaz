@@ -515,10 +515,29 @@
         advanced: [
           {
             pointsOfInterest: [{ x: xNorm, y: yNorm }],
-            focusMode: "continuous"
+            focusMode: "single-shot"
           }
         ]
-      }).catch(function () {});
+      }).then(function () {
+        setTimeout(function () {
+          if (videoTrack && videoTrack.applyConstraints) {
+            videoTrack.applyConstraints({
+              advanced: [{ focusMode: "continuous" }]
+            }).catch(function () {});
+          }
+        }, 1500);
+      }).catch(function () {
+        if (videoTrack && videoTrack.applyConstraints) {
+          videoTrack.applyConstraints({
+            advanced: [
+              {
+                pointsOfInterest: [{ x: xNorm, y: yNorm }],
+                focusMode: "continuous"
+              }
+            ]
+          }).catch(function () {});
+        }
+      });
     }
   }
 
