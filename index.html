@@ -89,7 +89,24 @@
     border-radius: 8px;
     cursor: pointer;
   }
-  #qr-reader { width: 100%; border-radius: 8px; overflow: hidden; margin-top: 16px; }
+  #qr-reader { width: 100%; border-radius: 8px; overflow: hidden; margin-top: 16px; position: relative; cursor: crosshair; }
+  .focus-ring {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.9;
+    pointer-events: none;
+    transition: transform 0.25s ease-out, opacity 0.4s ease-out;
+    box-shadow: 0 0 10px var(--accent);
+    z-index: 100;
+  }
+  .focus-ring.focused {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
   #qr-result {
     margin-top: 16px;
     padding: 14px;
@@ -475,6 +492,52 @@
       }
     } catch (e) {}
   }
+
+  var qrReaderContainer = document.getElementById("qr-reader");
+
+  function handleTouchFocus(e) {
+    if (!scannerRunning) return;
+    var rect = qrReaderContainer.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    var clientX = e.clientX;
+    var clientY = e.clientY;
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+    if (clientX === undefined || clientY === undefined) return;
+
+    var xNorm = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    var yNorm = Math.min(Math.max((clientY - rect.top) / rect.height, 0), 1);
+
+    var ring = document.createElement("div");
+    ring.className = "focus-ring";
+    ring.style.left = (clientX - rect.left) + "px";
+    ring.style.top = (clientY - rect.top) + "px";
+    qrReaderContainer.appendChild(ring);
+
+    requestAnimationFrame(function () {
+      ring.classList.add("focused");
+    });
+    setTimeout(function () {
+      if (ring.parentNode) ring.parentNode.removeChild(ring);
+    }, 500);
+
+    if (videoTrack && videoTrack.applyConstraints) {
+      videoTrack.applyConstraints({
+        advanced: [
+          {
+            pointsOfInterest: [{ x: xNorm, y: yNorm }],
+            focusMode: "continuous"
+          }
+        ]
+      }).catch(function () {});
+    }
+  }
+
+  qrReaderContainer.addEventListener("click", handleTouchFocus);
+  qrReaderContainer.addEventListener("touchstart", handleTouchFocus, { passive: true });
 
   zoomSlider.addEventListener("input", function () {
     var val = parseFloat(zoomSlider.value);
