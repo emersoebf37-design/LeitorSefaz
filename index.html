@@ -443,11 +443,7 @@
       html5QrCode = new Html5Qrcode("qr-reader");
     }
     html5QrCode.start(
-      {
-        facingMode: "environment",
-        focusMode: "continuous",
-        advanced: [{ focusMode: "continuous" }]
-      },
+      { facingMode: "environment" },
       {
         fps: 20,
         qrbox: function(viewfinderWidth, viewfinderHeight) {
