@@ -438,24 +438,32 @@
       toast("Biblioteca de leitura não carregada", true);
       return;
     }
-    /* Cria a instancia apenas uma vez, reutilizando nas proximas leituras */
     if (!html5QrCode) {
-      html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode = new Html5Qrcode("qr-reader", {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        verbose: false
+      });
     }
-    html5QrCode.start(
-      { facingMode: "environment" },
-      {
-        fps: 20,
-        qrbox: function(viewfinderWidth, viewfinderHeight) {
-          var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          var edge = Math.floor(minEdge * 0.75);
-          return { width: edge, height: edge };
-        },
-        aspectRatio: 1.0,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
+
+    var cameraConfig = {
+      facingMode: "environment"
+    };
+
+    var scanConfig = {
+      fps: 25,
+      videoConstraints: {
+        facingMode: "environment",
+        width: { min: 1280, ideal: 1920 },
+        height: { min: 720, ideal: 1080 }
       },
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      }
+    };
+
+    html5QrCode.start(
+      cameraConfig,
+      scanConfig,
       onScanSuccess,
       onScanFailure
     ).then(function () {
@@ -467,7 +475,10 @@
         var track = html5QrCode.getRunningTrackCameraCapabilities();
         if (track && track.applyConstraints) {
           track.applyConstraints({
-            advanced: [{ focusMode: "continuous" }]
+            advanced: [
+              { focusMode: "continuous" },
+              { pointsOfInterest: [{ x: 0.5, y: 0.5 }] }
+            ]
           }).catch(function () {});
         }
       } catch (e) {}
