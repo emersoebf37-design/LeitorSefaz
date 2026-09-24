@@ -18,8 +18,7 @@ const db = admin.firestore();
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 
-const SEFAZ_HOST = /(^|\.)sefaz\.[a-z]{2}\.gov\.br$/i;
-const SEFAZ_HOST_ALT = /(^|\.)sefaz\.gov\.br$/i;
+const GOV_BR_HOST = /(^|\.)gov\.br$/i;
 
 function isSefazUrl(rawUrl) {
   let parsed;
@@ -32,8 +31,8 @@ function isSefazUrl(rawUrl) {
     return { ok: false, reason: "Protocolo não permitido" };
   }
   const host = parsed.hostname.toLowerCase();
-  if (!SEFAZ_HOST.test(host) && !SEFAZ_HOST_ALT.test(host)) {
-    return { ok: false, reason: "URL não é um domínio SEFAZ permitido" };
+  if (!GOV_BR_HOST.test(host)) {
+    return { ok: false, reason: "URL não possui domínio .gov.br" };
   }
   return { ok: true, url: parsed };
 }
