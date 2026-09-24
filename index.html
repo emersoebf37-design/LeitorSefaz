@@ -184,6 +184,14 @@
       <!-- Botoes para iniciar/parar a camera (alternados por JS) -->
       <button id="btn-start-scan" class="primary">Iniciar leitura</button>
       <button id="btn-stop-scan" class="secondary" style="display:none; margin-top:12px; width:100%;">Parar leitura</button>
+      
+      <!-- Controles de Camera (Zoom e Lanterna) -->
+      <div id="camera-controls" style="display:none; margin-top:12px; gap:12px; align-items:center; background:#0b1220; padding:12px; border-radius:8px; border:1px solid var(--border);">
+        <label for="zoom-slider" style="font-size:0.85rem; color:var(--text); white-space:nowrap;">Zoom: <span id="zoom-val">1x</span></label>
+        <input id="zoom-slider" type="range" min="1" max="5" step="0.1" value="1" style="flex:1; cursor:pointer;" />
+        <button id="btn-torch" type="button" class="secondary" style="padding:6px 14px; font-size:0.85rem;">Lanterna</button>
+      </div>
+
       <!-- A biblioteca html5-qrcode injeta o video aqui -->
       <div id="qr-reader"></div>
       <!-- Mostra o conteudo bruto do QR Code lido -->
@@ -369,11 +377,17 @@
   /* --- Leitor de QR Code --- */
   var html5QrCode = null;      /* instancia da biblioteca Html5Qrcode */
   var scannerRunning = false;  /* controla se a camera esta ativa */
+  var videoTrack = null;       /* faixa de video ativa da camera */
   var btnStart = document.getElementById("btn-start-scan");
   var btnStop = document.getElementById("btn-stop-scan");
   var qrResult = document.getElementById("qr-result");
   var sefazTable = document.getElementById("sefaz-table");
   var sefazEmpty = document.getElementById("sefaz-empty");
+  var cameraControls = document.getElementById("camera-controls");
+  var zoomSlider = document.getElementById("zoom-slider");
+  var zoomVal = document.getElementById("zoom-val");
+  var btnTorch = document.getElementById("btn-torch");
+  var torchActive = false;
 
   /* Chamada pela biblioteca quando um QR Code e lido com sucesso:
      exibe o texto bruto, para a camera e envia para a API */
@@ -431,8 +445,58 @@
   /* Falhas de leitura por frame sao ignoradas (comportamento normal durante o scan) */
   function onScanFailure() { /* ignore per-frame failures */ }
 
-  /* Inicia a camera traseira (environment) a 10 fps com caixa de leitura 250x250 px.
-     Ao iniciar com sucesso, troca os botoes Iniciar/Parar. */
+  function setupCameraControls() {
+    try {
+      var videoEl = document.querySelector("#qr-reader video");
+      if (videoEl && videoEl.srcObject) {
+        var tracks = videoEl.srcObject.getVideoTracks();
+        if (tracks.length > 0) {
+          videoTrack = tracks[0];
+          var capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+
+          if (capabilities.zoom) {
+            zoomSlider.min = capabilities.zoom.min;
+            zoomSlider.max = capabilities.zoom.max;
+            zoomSlider.step = capabilities.zoom.step || 0.1;
+            zoomSlider.value = capabilities.zoom.min || 1;
+            zoomVal.textContent = Number(zoomSlider.value).toFixed(1) + "x";
+            cameraControls.style.display = "flex";
+          } else {
+            cameraControls.style.display = "flex";
+            if (zoomSlider.parentElement) zoomSlider.parentElement.style.display = "none";
+          }
+
+          if (capabilities.torch) {
+            btnTorch.style.display = "inline-block";
+          } else {
+            btnTorch.style.display = "none";
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  zoomSlider.addEventListener("input", function () {
+    var val = parseFloat(zoomSlider.value);
+    zoomVal.textContent = val.toFixed(1) + "x";
+    if (videoTrack && videoTrack.applyConstraints) {
+      videoTrack.applyConstraints({
+        advanced: [{ zoom: val }]
+      }).catch(function () {});
+    }
+  });
+
+  btnTorch.addEventListener("click", function () {
+    if (videoTrack && videoTrack.applyConstraints) {
+      torchActive = !torchActive;
+      videoTrack.applyConstraints({
+        advanced: [{ torch: torchActive }]
+      }).then(function () {
+        btnTorch.textContent = torchActive ? "Apagar Luz" : "Lanterna";
+      }).catch(function () {});
+    }
+  });
+
   function startScan() {
     if (!window.Html5Qrcode) {
       toast("Biblioteca de leitura não carregada", true);
@@ -453,8 +517,8 @@
       fps: 25,
       videoConstraints: {
         facingMode: "environment",
-        width: { min: 1280, ideal: 1920 },
-        height: { min: 720, ideal: 1080 }
+        width: { min: 1280, ideal: 1920, max: 3840 },
+        height: { min: 720, ideal: 1080, max: 2160 }
       },
       experimentalFeatures: {
         useBarCodeDetectorIfSupported: true
@@ -470,18 +534,7 @@
       scannerRunning = true;
       btnStart.style.display = "none";
       btnStop.style.display = "block";
-
-      try {
-        var track = html5QrCode.getRunningTrackCameraCapabilities();
-        if (track && track.applyConstraints) {
-          track.applyConstraints({
-            advanced: [
-              { focusMode: "continuous" },
-              { pointsOfInterest: [{ x: 0.5, y: 0.5 }] }
-            ]
-          }).catch(function () {});
-        }
-      } catch (e) {}
+      setTimeout(setupCameraControls, 500);
     }).catch(function (err) {
       toast("Erro ao acessar câmera: " + err, true);
     });
@@ -491,6 +544,10 @@
      Trata tanto o sucesso quanto o erro do stop() da biblioteca. */
   function stopScan() {
     if (!html5QrCode || !scannerRunning) { return; }
+    cameraControls.style.display = "none";
+    videoTrack = null;
+    torchActive = false;
+    btnTorch.textContent = "Lanterna";
     html5QrCode.stop().then(function () {
       scannerRunning = false;
       btnStart.style.display = "block";
