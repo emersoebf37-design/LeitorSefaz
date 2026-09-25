@@ -232,6 +232,34 @@ function handleScan(req, res) {
   });
 }
 
+function handleSaveManual(req, res) {
+  let body = "";
+  req.on("data", (c) => {
+    body += c;
+    if (body.length > 500000) req.destroy();
+  });
+  req.on("end", () => {
+    let payload;
+    try {
+      payload = JSON.parse(body || "{}");
+    } catch (e) {
+      return sendJson(res, 400, { ok: false, error: "JSON inválido" });
+    }
+    db.collection("leituras").add({
+      tipo: "manual",
+      status: "concluido",
+      dados: payload.dados || {},
+      registradoEm: admin.firestore.FieldValue.serverTimestamp()
+    })
+      .then((docRef) => {
+        sendJson(res, 200, { ok: true, id: docRef.id, message: "Nota manual salva no Firebase com sucesso" });
+      })
+      .catch((err) => {
+        sendJson(res, 502, { ok: false, error: "Falha ao salvar no Firebase: " + err.message });
+      });
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://" + (req.headers.host || "localhost"));
   if (req.method === "POST" && url.pathname === "/api/scan") {
@@ -239,6 +267,9 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === "POST" && url.pathname === "/api/scan-key") {
     return handleScanKey(req, res);
+  }
+  if (req.method === "POST" && url.pathname === "/api/save-manual") {
+    return handleSaveManual(req, res);
   }
   if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     return serveStatic(res, path.join(ROOT, "index.html"), "text/html; charset=utf-8");

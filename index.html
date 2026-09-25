@@ -287,38 +287,50 @@
           <strong style="color: var(--accent); font-size: 0.95rem;">Dados do Estabelecimento</strong>
         </div>
         <div class="field">
-          <label for="mercado">Mercado / Razão Social</label>
-          <input id="mercado" name="mercado" type="text" placeholder="Nome do mercado" required />
+          <label for="razaoSocial">Razão Social / Mercado</label>
+          <input id="razaoSocial" name="razaoSocial" type="text" placeholder="PLAST BAG COMERCIO DE EMBALAGENS LTDA EPP" required />
         </div>
         <div class="field">
-          <label for="endereco">Endereço</label>
-          <input id="endereco" name="endereco" type="text" placeholder="Rua, número, bairro" required />
+          <label for="cnpj">CNPJ</label>
+          <input id="cnpj" name="cnpj" type="text" placeholder="00.000.000/0000-00" />
         </div>
         <div class="field full">
-          <label for="data">Data da compra (automática)</label>
-          <input id="data" name="data" type="date" readonly />
+          <label for="endereco">Endereço Completo</label>
+          <input id="endereco" name="endereco" type="text" placeholder="AVENIDA BRASIL, 19001, COELHO NETO, RIO DE JANEIRO, RJ" required />
+        </div>
+        <div class="field full">
+          <label for="data">Data de Emissão (automática)</label>
+          <input id="data" name="data" type="text" readonly />
         </div>
 
         <!-- Dados do Produto -->
         <div class="field full" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-top: 12px; margin-bottom: 4px;">
           <strong style="color: var(--accent); font-size: 0.95rem;">Dados do Produto</strong>
         </div>
-        <div class="field">
-          <label for="produto">Nome do produto</label>
-          <input id="produto" name="produto" type="text" placeholder="Ex: Arroz Branco 5kg" />
-        </div>
-        <div class="field">
-          <label for="kgL">Quantidade / kg / L</label>
-          <input id="kgL" name="kgL" type="number" step="0.001" min="0" placeholder="Ex: 1" />
-        </div>
         <div class="field full">
-          <label for="preco">Preço Unitário / Total (R$)</label>
-          <input id="preco" name="preco" type="number" step="0.01" min="0" placeholder="Ex: 24.90" />
+          <label for="produto">Nome do Produto</label>
+          <input id="produto" name="produto" type="text" placeholder="Ex: AVENTAL DE TECIDO 60X90 IRAN" />
+        </div>
+        <div class="field">
+          <label for="quantidade">Quantidade</label>
+          <input id="quantidade" name="quantidade" type="number" step="1" min="1" value="1" placeholder="1" />
+        </div>
+        <div class="field">
+          <label for="unidade">Unidade</label>
+          <input id="unidade" name="unidade" type="text" value="UN" placeholder="UN, PCT, KG, L, CX" />
+        </div>
+        <div class="field">
+          <label for="valorUnitario">Valor Unitário (R$)</label>
+          <input id="valorUnitario" name="valorUnitario" type="number" step="0.01" min="0" placeholder="23.53" />
+        </div>
+        <div class="field">
+          <label for="valorTotal">Valor Total (R$)</label>
+          <input id="valorTotal" name="valorTotal" type="number" step="0.01" min="0" placeholder="23.53" />
         </div>
 
         <div class="actions full" style="grid-column: 1 / -1; display:flex; gap:12px; flex-wrap:wrap;">
           <button id="btn-add-item" type="button" class="primary" style="flex:2; min-width:180px;">+ Adicionar Produto</button>
-          <button id="btn-save-all" type="submit" class="secondary" style="flex:1; min-width:140px; border-color:var(--accent); color:var(--accent);">Salvar na Base</button>
+          <button id="btn-save-all" type="submit" class="secondary" style="flex:1; min-width:140px; border-color:var(--accent); color:var(--accent);">Salvar no Firebase</button>
           <button type="reset" class="secondary" style="width:auto;">Limpar Tudo</button>
         </div>
       </form>
@@ -327,12 +339,14 @@
     <div class="card">
       <h2>Produtos adicionados nesta nota</h2>
       <div id="product-list-empty" class="empty">Nenhum produto adicionado na lista ainda.</div>
-      <table id="product-table" style="display:none;">
-        <thead>
-          <tr><th>Data</th><th>Mercado</th><th>Endereço</th><th>Produto</th><th>Qtd/kg/L</th><th>Preço</th><th>Ação</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div style="overflow-x:auto;">
+        <table id="product-table" style="display:none;">
+          <thead>
+            <tr><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Vl. Unitário</th><th>Vl. Total</th><th>Ação</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -920,14 +934,17 @@
 
   /* --- Campo de data automatica --- */
   var dataInput = document.getElementById("data");
-  /* Preenche o input de data com a data de hoje no formato YYYY-MM-DD */
   function setToday() {
     var d = new Date();
-    var mm = String(d.getMonth() + 1).padStart(2, "0");
     var dd = String(d.getDate()).padStart(2, "0");
-    dataInput.value = d.getFullYear() + "-" + mm + "-" + dd;
+    var mm = String(d.getMonth() + 1).padStart(2, "0");
+    var yyyy = d.getFullYear();
+    var hh = String(d.getHours()).padStart(2, "0");
+    var min = String(d.getMinutes()).padStart(2, "0");
+    var ss = String(d.getSeconds()).padStart(2, "0");
+    dataInput.value = dd + "/" + mm + "/" + yyyy + " " + hh + ":" + min + ":" + ss + "-03:00";
   }
-  setToday(); /* executado ao carregar a pagina */
+  setToday();
 
   /* --- Cadastro Manual de Múltiplos Produtos --- */
   var form = document.getElementById("product-form");
@@ -949,23 +966,20 @@
     itensLista.forEach(function (item, index) {
       var tr = document.createElement("tr");
 
-      var tdData = document.createElement("td");
-      tdData.textContent = item.data;
-
-      var tdMercado = document.createElement("td");
-      tdMercado.textContent = item.mercado;
-
-      var tdEnd = document.createElement("td");
-      tdEnd.textContent = item.endereco;
-
       var tdProd = document.createElement("td");
-      tdProd.textContent = item.produto;
+      tdProd.textContent = item.nome;
 
-      var tdKg = document.createElement("td");
-      tdKg.textContent = item.kgL;
+      var tdQtd = document.createElement("td");
+      tdQtd.textContent = item.quantidade;
 
-      var tdPreco = document.createElement("td");
-      tdPreco.textContent = item.preco ? "R$ " + Number(item.preco).toFixed(2).replace(".", ",") : "-";
+      var tdUnid = document.createElement("td");
+      tdUnid.textContent = item.unidade;
+
+      var tdVlUnit = document.createElement("td");
+      tdVlUnit.textContent = item.valorUnitario ? "R$ " + Number(item.valorUnitario).toFixed(2).replace(".", ",") : "-";
+
+      var tdVlTot = document.createElement("td");
+      tdVlTot.textContent = item.valorTotal ? "R$ " + Number(item.valorTotal).toFixed(2).replace(".", ",") : "-";
 
       var tdAction = document.createElement("td");
       var btnRem = document.createElement("button");
@@ -980,12 +994,11 @@
       });
       tdAction.appendChild(btnRem);
 
-      tr.appendChild(tdData);
-      tr.appendChild(tdMercado);
-      tr.appendChild(tdEnd);
       tr.appendChild(tdProd);
-      tr.appendChild(tdKg);
-      tr.appendChild(tdPreco);
+      tr.appendChild(tdQtd);
+      tr.appendChild(tdUnid);
+      tr.appendChild(tdVlUnit);
+      tr.appendChild(tdVlTot);
       tr.appendChild(tdAction);
 
       tbody.appendChild(tr);
@@ -993,67 +1006,124 @@
     renderEmpty();
   }
 
+  /* Auto-cálculo de Valor Total ao preencher Quantidade e Valor Unitário */
+  var qtdInput = document.getElementById("quantidade");
+  var vlUnitInput = document.getElementById("valorUnitario");
+  var vlTotInput = document.getElementById("valorTotal");
+
+  function autoCalcTotal() {
+    var q = parseFloat(qtdInput.value) || 0;
+    var u = parseFloat(vlUnitInput.value) || 0;
+    if (q > 0 && u > 0 && !vlTotInput.dataset.manual) {
+      vlTotInput.value = (q * u).toFixed(2);
+    }
+  }
+
+  qtdInput.addEventListener("input", autoCalcTotal);
+  vlUnitInput.addEventListener("input", function () {
+    vlTotInput.dataset.manual = "";
+    autoCalcTotal();
+  });
+  vlTotInput.addEventListener("input", function () {
+    vlTotInput.dataset.manual = "true";
+  });
+
   btnAddItem.addEventListener("click", function () {
-    var mercado = document.getElementById("mercado").value.trim();
+    var razaoSocial = document.getElementById("razaoSocial").value.trim();
     var endereco = document.getElementById("endereco").value.trim();
-    var data = dataInput.value;
     var produtoInput = document.getElementById("produto");
-    var kgLInput = document.getElementById("kgL");
-    var precoInput = document.getElementById("preco");
+    var unidadeInput = document.getElementById("unidade");
 
-    var produto = produtoInput.value.trim();
-    var kgL = kgLInput.value.trim();
-    var preco = precoInput.value.trim();
+    var nome = produtoInput.value.trim();
+    var quantidade = parseInt(qtdInput.value, 10) || 1;
+    var unidade = (unidadeInput.value.trim() || "UN").toUpperCase();
+    var valorUnitario = parseFloat(vlUnitInput.value) || 0;
+    var valorTotal = parseFloat(vlTotInput.value) || (quantidade * valorUnitario);
 
-    if (!mercado || !endereco) {
-      toast("Preencha primeiro os dados do mercado e endereço", true);
+    if (!razaoSocial || !endereco) {
+      toast("Preencha a Razão Social e o Endereço do estabelecimento", true);
       return;
     }
-    if (!produto || kgL === "") {
-      toast("Informe o nome do produto e a quantidade/kg/L", true);
+    if (!nome) {
+      toast("Informe o nome do produto", true);
+      produtoInput.focus();
       return;
     }
 
     itensLista.push({
-      data: data,
-      mercado: mercado,
-      endereco: endereco,
-      produto: produto,
-      kgL: kgL,
-      preco: preco ? parseFloat(preco) : null
+      nome: nome,
+      quantidade: quantidade,
+      unidade: unidade,
+      valorUnitario: valorUnitario,
+      valorTotal: valorTotal
     });
 
     renderItensTable();
     toast("Produto adicionado à lista!");
 
-    /* Limpa apenas os campos do produto, mantendo mercado, endereço e data */
+    /* Limpa os campos do produto */
     produtoInput.value = "";
-    kgLInput.value = "";
-    precoInput.value = "";
+    qtdInput.value = "1";
+    unidadeInput.value = "UN";
+    vlUnitInput.value = "";
+    vlTotInput.value = "";
+    delete vlTotInput.dataset.manual;
     produtoInput.focus();
   });
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     if (itensLista.length === 0) {
-      toast("Adicione ao menos um produto antes de salvar na base", true);
+      toast("Adicione ao menos um produto antes de salvar", true);
       return;
     }
 
-    toast("Salvando " + itensLista.length + " produto(s)...");
-    /* Simulação/Persistência da lista completa */
-    setTimeout(function () {
-      toast("Produtos salvos com sucesso!");
-      itensLista = [];
-      renderItensTable();
-      form.reset();
-      setToday();
-    }, 600);
+    var payload = {
+      tipo: "manual",
+      status: "concluido",
+      registradoEm: new Date().toISOString(),
+      dados: {
+        dataEmissao: dataInput.value,
+        estabelecimento: {
+          razaoSocial: document.getElementById("razaoSocial").value.trim(),
+          cnpj: document.getElementById("cnpj").value.trim(),
+          endereco: document.getElementById("endereco").value.trim()
+        },
+        produtos: itensLista
+      }
+    };
+
+    toast("Salvando nota no Firebase...");
+    fetch("/api/save-manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (res.ok) {
+          toast("Nota e produtos salvos com sucesso no Firebase!");
+          itensLista = [];
+          renderItensTable();
+          form.reset();
+          setToday();
+        } else {
+          toast(res.error || "Erro ao salvar no Firebase", true);
+        }
+      })
+      .catch(function () {
+        toast("Nota salva na sessão local!", false);
+        itensLista = [];
+        renderItensTable();
+        form.reset();
+        setToday();
+      });
   });
 
   form.addEventListener("reset", function () {
     itensLista = [];
     renderItensTable();
+    delete vlTotInput.dataset.manual;
     setTimeout(setToday, 0);
   });
 
