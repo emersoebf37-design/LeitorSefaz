@@ -185,7 +185,7 @@
   <nav class="tabs">
     <!-- data-tab liga cada botao ao painel correspondente -->
     <button class="tab active" data-tab="scan">Ler QRCODE SEFAZ</button>
-    <button class="tab" data-tab="product">Adicionar produto unico</button>
+    <button class="tab" data-tab="product">Adicionar manualmente</button>
     <button class="tab" data-tab="search">Pesquisar na base</button>
   </nav>
 </header>
@@ -199,7 +199,13 @@
         Aponte a câmera para o QR Code da nota fiscal (SEFAZ).
       </p>
       <!-- Botoes para iniciar/parar a camera (alternados por JS) -->
-      <button id="btn-start-scan" class="primary">Iniciar leitura</button>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button id="btn-start-scan" class="primary" style="flex:1; min-width:160px;">Iniciar leitura contínua</button>
+        <label for="camera-file-input" class="secondary" style="flex:1; min-width:160px; text-align:center; display:flex; align-items:center; justify-content:center; cursor:pointer; font-weight:600; border-color:var(--accent); color:var(--accent);">
+          📷 Tirar Foto (Câmera Nativa)
+        </label>
+        <input id="camera-file-input" type="file" accept="image/*" capture="environment" style="display:none;" />
+      </div>
       <button id="btn-stop-scan" class="secondary" style="display:none; margin-top:12px; width:100%;">Parar leitura</button>
       
       <!-- Controles de Camera (Zoom e Lanterna) -->
@@ -216,6 +222,20 @@
 
       <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);" />
       <p style="color: var(--muted); margin: 0 0 10px; font-size: 0.9rem;">
+        Ou cole diretamente o link lido pelo leitor de QR Code do celular:
+      </p>
+      <div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
+        <input
+          id="qr-url-input"
+          type="url"
+          placeholder="https://consultadfe.fazenda... ou qualquer URL .gov.br"
+          style="flex:1; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:0.95rem; background:#0b1220; color:var(--text); font-family:monospace;"
+        />
+        <button id="btn-submit-url" class="primary" style="white-space:nowrap; width:auto;">Processar Link</button>
+      </div>
+
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);" />
+      <p style="color: var(--muted); margin: 0 0 10px; font-size: 0.9rem;">
         Ou informe a chave de acesso da nota fiscal (44 dígitos numéricos):
       </p>
       <div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
@@ -223,8 +243,8 @@
           id="access-key-input"
           type="text"
           inputmode="numeric"
-          maxlength="44"
-          placeholder="44 dígitos numéricos"
+          maxlength="54"
+          placeholder="0000-0000-0000-0000-..."
           style="flex:1; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:1rem; background:var(--surface); color:var(--text); font-family:monospace; letter-spacing:0.05em;"
         />
         <button id="btn-access-key" class="primary" style="white-space:nowrap;">Consultar chave</button>
@@ -260,45 +280,56 @@
   <!-- ===== Painel 2: cadastro manual de produtos ===== -->
   <section id="panel-product" class="panel">
     <div class="card">
-      <h2>Adicionar produto unico</h2>
-      <!-- Formulario de cadastro; autocomplete off evita sugestoes do navegador -->
+      <h2>Adicionar manualmente</h2>
       <form id="product-form" class="form-grid" autocomplete="off">
+        <!-- Dados do Estabelecimento (Preenchimento Unico) -->
+        <div class="field full" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 4px;">
+          <strong style="color: var(--accent); font-size: 0.95rem;">Dados do Estabelecimento</strong>
+        </div>
         <div class="field">
-          <label for="mercado">Mercado</label>
-          <input id="mercado" name="mercado" type="text" required />
+          <label for="mercado">Mercado / Razão Social</label>
+          <input id="mercado" name="mercado" type="text" placeholder="Nome do mercado" required />
         </div>
         <div class="field">
           <label for="endereco">Endereço</label>
-          <input id="endereco" name="endereco" type="text" required />
-        </div>
-        <div class="field">
-          <label for="produto">Nome produto</label>
-          <input id="produto" name="produto" type="text" required />
-        </div>
-        <div class="field">
-          <label for="kgL">kg/L</label>
-          <input id="kgL" name="kgL" type="number" step="0.001" min="0" required />
+          <input id="endereco" name="endereco" type="text" placeholder="Rua, número, bairro" required />
         </div>
         <div class="field full">
-          <label for="data">Data (automática)</label>
-          <!-- Data preenchida automaticamente pelo JS (somente leitura) -->
+          <label for="data">Data da compra (automática)</label>
           <input id="data" name="data" type="date" readonly />
         </div>
-        <div class="actions full" style="grid-column: 1 / -1;">
-          <button type="submit" class="primary">Adicionar produto unico</button>
-          <button type="reset" class="secondary">Limpar</button>
+
+        <!-- Dados do Produto -->
+        <div class="field full" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-top: 12px; margin-bottom: 4px;">
+          <strong style="color: var(--accent); font-size: 0.95rem;">Dados do Produto</strong>
+        </div>
+        <div class="field">
+          <label for="produto">Nome do produto</label>
+          <input id="produto" name="produto" type="text" placeholder="Ex: Arroz Branco 5kg" />
+        </div>
+        <div class="field">
+          <label for="kgL">Quantidade / kg / L</label>
+          <input id="kgL" name="kgL" type="number" step="0.001" min="0" placeholder="Ex: 1" />
+        </div>
+        <div class="field full">
+          <label for="preco">Preço Unitário / Total (R$)</label>
+          <input id="preco" name="preco" type="number" step="0.01" min="0" placeholder="Ex: 24.90" />
+        </div>
+
+        <div class="actions full" style="grid-column: 1 / -1; display:flex; gap:12px; flex-wrap:wrap;">
+          <button id="btn-add-item" type="button" class="primary" style="flex:2; min-width:180px;">+ Adicionar Produto</button>
+          <button id="btn-save-all" type="submit" class="secondary" style="flex:1; min-width:140px; border-color:var(--accent); color:var(--accent);">Salvar na Base</button>
+          <button type="reset" class="secondary" style="width:auto;">Limpar Tudo</button>
         </div>
       </form>
     </div>
 
     <div class="card">
-      <h2>Produtos adicionados</h2>
-      <!-- Mensagem exibida enquanto a tabela estiver vazia -->
-      <div id="product-list-empty" class="empty">Nenhum produto adicionado.</div>
-      <!-- Linhas inseridas dinamicamente ao enviar o formulario -->
+      <h2>Produtos adicionados nesta nota</h2>
+      <div id="product-list-empty" class="empty">Nenhum produto adicionado na lista ainda.</div>
       <table id="product-table" style="display:none;">
         <thead>
-          <tr><th>Data</th><th>Mercado</th><th>Endereço</th><th>Produto</th><th>kg/L</th></tr>
+          <tr><th>Data</th><th>Mercado</th><th>Endereço</th><th>Produto</th><th>Qtd/kg/L</th><th>Preço</th><th>Ação</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -680,28 +711,127 @@
   btnStart.addEventListener("click", startScan);
   btnStop.addEventListener("click", stopScan);
 
-  /* --- Consulta por chave de acesso (44 digitos) --- */
+  /* --- Processamento de Imagem da Câmera Nativa / Upload --- */
+  var cameraFileInput = document.getElementById("camera-file-input");
+
+  function processImageFile(file) {
+    if (!file) return;
+    toast("Processando foto da nota fiscal...");
+
+    var DetectorClass = window.BarcodeDetector || (window.barcodeDetector && window.barcodeDetector.BarcodeDetector);
+    var img = new Image();
+    var objectUrl = URL.createObjectURL(file);
+
+    img.onload = function () {
+      URL.revokeObjectURL(objectUrl);
+      if (DetectorClass) {
+        var detector;
+        try {
+          detector = new DetectorClass({ formats: ["qr_code"] });
+        } catch (e) {
+          detector = new DetectorClass();
+        }
+        detector.detect(img)
+          .then(function (barcodes) {
+            if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+              onScanSuccess(barcodes[0].rawValue);
+            } else {
+              toast("Nenhum QR Code encontrado na foto. Tente aproximar mais.", true);
+            }
+          })
+          .catch(function () {
+            toast("Falha ao analisar QR Code da foto.", true);
+          });
+      } else {
+        toast("Detector nativo indisponível para fotos.", true);
+      }
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(objectUrl);
+      toast("Erro ao carregar a imagem capturada.", true);
+    };
+    img.src = objectUrl;
+  }
+
+  cameraFileInput.addEventListener("change", function (e) {
+    if (e.target.files && e.target.files.length > 0) {
+      processImageFile(e.target.files[0]);
+      e.target.value = "";
+    }
+  });
+
+  /* --- Processar URL digitada/colada --- */
+  var qrUrlInput = document.getElementById("qr-url-input");
+  var btnSubmitUrl = document.getElementById("btn-submit-url");
+
+  function processarUrlManual() {
+    var rawUrl = qrUrlInput.value.trim();
+    if (!rawUrl) {
+      toast("Cole ou digite a URL da nota", true);
+      return;
+    }
+    qrResult.textContent = rawUrl;
+    qrResult.classList.add("filled");
+    consultarSefaz(rawUrl);
+    qrUrlInput.value = "";
+  }
+
+  btnSubmitUrl.addEventListener("click", processarUrlManual);
+  qrUrlInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") processarUrlManual();
+  });
+
+  /* Auto-processamento se a página for aberta via parâmetro de URL (ex: ?url=... ou ?p=...) */
+  (function checarParametrosUrl() {
+    var params = new URLSearchParams(window.location.search);
+    var urlParam = params.get("url") || params.get("qr") || params.get("qrcode");
+    if (!urlParam && window.location.search.includes("http")) {
+      var fullSearch = window.location.search.substring(1);
+      if (fullSearch.startsWith("url=")) {
+        urlParam = decodeURIComponent(fullSearch.replace("url=", ""));
+      } else if (fullSearch.startsWith("http")) {
+        urlParam = decodeURIComponent(fullSearch);
+      }
+    }
+    if (urlParam) {
+      qrResult.textContent = urlParam;
+      qrResult.classList.add("filled");
+      consultarSefaz(urlParam);
+    }
+  })();
+
+  /* --- Consulta por chave de acesso (44 digitos formatados) --- */
   var accessKeyInput = document.getElementById("access-key-input");
   var accessKeyError = document.getElementById("access-key-error");
   var btnAccessKey = document.getElementById("btn-access-key");
 
+  function formatAccessKey(val) {
+    var digits = val.replace(/\D/g, "").slice(0, 44);
+    var parts = [];
+    for (var i = 0; i < digits.length; i += 4) {
+      parts.push(digits.slice(i, i + 4));
+    }
+    return parts.join("-");
+  }
+
   accessKeyInput.addEventListener("input", function () {
-    accessKeyInput.value = accessKeyInput.value.replace(/\D/g, "").slice(0, 44);
+    var rawDigits = accessKeyInput.value.replace(/\D/g, "").slice(0, 44);
+    accessKeyInput.value = formatAccessKey(rawDigits);
     accessKeyError.style.display = "none";
   });
 
   btnAccessKey.addEventListener("click", function () {
-    var key = accessKeyInput.value.trim();
-    if (key.length !== 44) {
-      accessKeyError.textContent = "A chave de acesso deve ter exatamente 44 dígitos numéricos.";
+    var rawKey = accessKeyInput.value.replace(/\D/g, "").trim();
+    if (rawKey.length !== 44) {
+      accessKeyError.textContent = "A chave de acesso deve ter exatamente 44 dígitos numéricos (" + rawKey.length + "/44).";
       accessKeyError.style.display = "block";
       return;
     }
     accessKeyError.style.display = "none";
-    qrResult.textContent = "Chave: " + key;
+    qrResult.textContent = "Chave: " + accessKeyInput.value;
     qrResult.classList.add("filled");
     if (DEBUG) {
-      var debugUrl = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nrChave=" + key;
+      var debugUrl = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nrChave=" + rawKey;
       window.open(debugUrl, "_blank");
       return;
     }
@@ -709,7 +839,7 @@
     fetch("/api/scan-key", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: key })
+      body: JSON.stringify({ key: rawKey })
     })
       .then(function (res) { return res.json().then(function (d) { return { status: res.status, data: d }; }); })
       .then(function (out) {
@@ -799,53 +929,131 @@
   }
   setToday(); /* executado ao carregar a pagina */
 
-  /* --- Formulario de produto unico --- */
+  /* --- Cadastro Manual de Múltiplos Produtos --- */
   var form = document.getElementById("product-form");
   var table = document.getElementById("product-table");
   var tbody = table.querySelector("tbody");
   var emptyEl = document.getElementById("product-list-empty");
+  var btnAddItem = document.getElementById("btn-add-item");
+  var itensLista = [];
 
-  /* Alterna a visibilidade da tabela e da mensagem de lista vazia */
   function renderEmpty() {
-    var has = tbody.children.length > 0;
+    var has = itensLista.length > 0;
     table.style.display = has ? "table" : "none";
     emptyEl.style.display = has ? "none" : "block";
   }
-  renderEmpty(); /* estado inicial ao carregar a pagina */
+  renderEmpty();
 
-  /* Ao submeter o formulario: valida os campos, cria uma linha na tabela,
-     exibe confirmacao, reseta o form e repoe a data de hoje */
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
+  function renderItensTable() {
+    tbody.innerHTML = "";
+    itensLista.forEach(function (item, index) {
+      var tr = document.createElement("tr");
+
+      var tdData = document.createElement("td");
+      tdData.textContent = item.data;
+
+      var tdMercado = document.createElement("td");
+      tdMercado.textContent = item.mercado;
+
+      var tdEnd = document.createElement("td");
+      tdEnd.textContent = item.endereco;
+
+      var tdProd = document.createElement("td");
+      tdProd.textContent = item.produto;
+
+      var tdKg = document.createElement("td");
+      tdKg.textContent = item.kgL;
+
+      var tdPreco = document.createElement("td");
+      tdPreco.textContent = item.preco ? "R$ " + Number(item.preco).toFixed(2).replace(".", ",") : "-";
+
+      var tdAction = document.createElement("td");
+      var btnRem = document.createElement("button");
+      btnRem.type = "button";
+      btnRem.textContent = "Remover";
+      btnRem.className = "secondary";
+      btnRem.style.padding = "4px 8px";
+      btnRem.style.fontSize = "0.8rem";
+      btnRem.addEventListener("click", function () {
+        itensLista.splice(index, 1);
+        renderItensTable();
+      });
+      tdAction.appendChild(btnRem);
+
+      tr.appendChild(tdData);
+      tr.appendChild(tdMercado);
+      tr.appendChild(tdEnd);
+      tr.appendChild(tdProd);
+      tr.appendChild(tdKg);
+      tr.appendChild(tdPreco);
+      tr.appendChild(tdAction);
+
+      tbody.appendChild(tr);
+    });
+    renderEmpty();
+  }
+
+  btnAddItem.addEventListener("click", function () {
     var mercado = document.getElementById("mercado").value.trim();
     var endereco = document.getElementById("endereco").value.trim();
-    var produto = document.getElementById("produto").value.trim();
-    var kgL = document.getElementById("kgL").value.trim();
     var data = dataInput.value;
+    var produtoInput = document.getElementById("produto");
+    var kgLInput = document.getElementById("kgL");
+    var precoInput = document.getElementById("preco");
 
-    /* Validacao: todos os campos sao obrigatorios */
-    if (!mercado || !endereco || !produto || kgL === "") {
-      toast("Preencha todos os campos", true);
+    var produto = produtoInput.value.trim();
+    var kgL = kgLInput.value.trim();
+    var preco = precoInput.value.trim();
+
+    if (!mercado || !endereco) {
+      toast("Preencha primeiro os dados do mercado e endereço", true);
+      return;
+    }
+    if (!produto || kgL === "") {
+      toast("Informe o nome do produto e a quantidade/kg/L", true);
       return;
     }
 
-    /* Cria uma linha com as 5 colunas na ordem correta */
-    var tr = document.createElement("tr");
-    [data, mercado, endereco, produto, kgL].forEach(function (val) {
-      var td = document.createElement("td");
-      td.textContent = val;
-      tr.appendChild(td);
+    itensLista.push({
+      data: data,
+      mercado: mercado,
+      endereco: endereco,
+      produto: produto,
+      kgL: kgL,
+      preco: preco ? parseFloat(preco) : null
     });
-    tbody.appendChild(tr);
-    renderEmpty();
-    toast("Produto adicionado");
-    form.reset();
-    setToday(); /* recoloca a data apos o reset */
+
+    renderItensTable();
+    toast("Produto adicionado à lista!");
+
+    /* Limpa apenas os campos do produto, mantendo mercado, endereço e data */
+    produtoInput.value = "";
+    kgLInput.value = "";
+    precoInput.value = "";
+    produtoInput.focus();
   });
 
-  /* Apos o reset do formulario (botao Limpar), restaura a data automatica.
-     setTimeout garante que o reset termine antes de setar o valor. */
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (itensLista.length === 0) {
+      toast("Adicione ao menos um produto antes de salvar na base", true);
+      return;
+    }
+
+    toast("Salvando " + itensLista.length + " produto(s)...");
+    /* Simulação/Persistência da lista completa */
+    setTimeout(function () {
+      toast("Produtos salvos com sucesso!");
+      itensLista = [];
+      renderItensTable();
+      form.reset();
+      setToday();
+    }, 600);
+  });
+
   form.addEventListener("reset", function () {
+    itensLista = [];
+    renderItensTable();
     setTimeout(setToday, 0);
   });
 
