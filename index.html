@@ -678,6 +678,25 @@
   }
 
   input[type="range"]:focus { box-shadow: none; border-color: transparent; }
+
+  /* ===== ANALYTICS ===== */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-label { font-size: 0.78rem; color: var(--text); width: 180px; min-width: 120px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .bar-track { flex: 1; background: var(--border); border-radius: 4px; height: 20px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .bar-value { font-size: 0.78rem; color: var(--muted); min-width: 90px; text-align: right; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+  .bar-count { font-size: 0.72rem; color: var(--muted2); min-width: 50px; text-align: right; flex-shrink: 0; }
+
+  .analytics-type-btn:hover { border-color: var(--accent) !important; color: #60a5fa !important; background: var(--accent-glow) !important; }
+
+  /* Leaflet overrides para dark mode */
+  .leaflet-container { background: #0a1929; }
+  .leaflet-popup-content-wrapper { background: var(--card); border: 1px solid var(--border2); color: var(--text2); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  .leaflet-popup-tip { background: var(--card); }
+  .leaflet-popup-content { margin: 12px 16px; font-family: 'Inter', sans-serif; }
+  .leaflet-popup-close-button { color: var(--muted) !important; }
+  .leaflet-tile { filter: brightness(0.55) saturate(0.7) hue-rotate(200deg); }
 </style>
 </head>
 <body>
@@ -721,6 +740,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         Consultar Base
       </button>
+      <button class="nav-item" data-tab="analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
+        Análise Visual
+      </button>
     </div>
 
     <div class="sidebar-footer">
@@ -737,9 +760,10 @@
   <main class="content" id="main-content">
     <!-- Mobile tab buttons (visible only on small screens) -->
     <div id="mobile-tabs" style="gap:8px; margin-bottom:20px; flex-wrap:wrap;">
-      <button class="nav-item active" data-tab="scan" style="flex:1; min-width:120px; justify-content:center;">QR SEFAZ</button>
-      <button class="nav-item" data-tab="product" style="flex:1; min-width:120px; justify-content:center;">Manual</button>
-      <button class="nav-item" data-tab="search" style="flex:1; min-width:120px; justify-content:center;">Consulta</button>
+      <button class="nav-item active" data-tab="scan" style="flex:1; min-width:100px; justify-content:center;">QR SEFAZ</button>
+      <button class="nav-item" data-tab="product" style="flex:1; min-width:100px; justify-content:center;">Manual</button>
+      <button class="nav-item" data-tab="search" style="flex:1; min-width:100px; justify-content:center;">Consulta</button>
+      <button class="nav-item" data-tab="analytics" style="flex:1; min-width:100px; justify-content:center;">Análise</button>
     </div>
 
     <!-- ===== Painel 1: leitura de QR Code da SEFAZ ===== -->
@@ -1030,6 +1054,98 @@
         </div>
       </div>
     </section>
+
+    <!-- ===== Painel 4: Análise Visual ===== -->
+    <section id="panel-analytics" class="panel">
+      <div class="page-header">
+        <div class="page-title">
+          <div class="page-title-icon" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
+          </div>
+          Análise Visual
+        </div>
+        <div class="page-subtitle">Projeção em gráficos de barras, agrupamento por estabelecimento e mapa interativo do Rio de Janeiro</div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center;">
+        <button id="btn-load-analytics" class="primary" style="width:auto; padding:10px 24px;">Carregar / Atualizar Dados</button>
+        <div id="analytics-loading" style="display:none; color:var(--muted); font-size:0.85rem;">Carregando dados do Firebase...</div>
+      </div>
+
+      <!-- Filtro de tipo de estabelecimento -->
+      <div class="card" style="padding:16px 20px; margin-bottom:16px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <span style="font-size:0.78rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Filtrar por tipo:</span>
+          <button class="analytics-type-btn active" data-type="all" style="padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; border:1px solid var(--accent); color:#60a5fa; background:var(--accent-glow); cursor:pointer;">Todos</button>
+          <button class="analytics-type-btn" data-type="Mercado" style="padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; border:1px solid var(--border2); color:var(--muted); background:transparent; cursor:pointer;">Mercado</button>
+          <button class="analytics-type-btn" data-type="Utili-casa" style="padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; border:1px solid var(--border2); color:var(--muted); background:transparent; cursor:pointer;">Utili-casa</button>
+          <button class="analytics-type-btn" data-type="Loja" style="padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; border:1px solid var(--border2); color:var(--muted); background:transparent; cursor:pointer;">Loja</button>
+          <button class="analytics-type-btn" data-type="Outros" style="padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; border:1px solid var(--border2); color:var(--muted); background:transparent; cursor:pointer;">Outros</button>
+        </div>
+      </div>
+
+      <!-- Gráfico: por tipo de estabelecimento -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
+          </div>
+          <h2>Gasto por Tipo de Estabelecimento</h2>
+        </div>
+        <div id="chart-store-type" style="width:100%;"></div>
+      </div>
+
+      <!-- Gráfico: por estabelecimento -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          </div>
+          <h2>Gasto por Estabelecimento</h2>
+        </div>
+        <div id="chart-stores" style="width:100%;"></div>
+      </div>
+
+      <!-- Gráfico: por categoria de produto (mercado) -->
+      <div class="card" id="card-categories" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:var(--green-glow);border:1px solid rgba(16,185,129,0.25);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+          </div>
+          <h2>Categorias de Produtos (Mercado)</h2>
+        </div>
+        <div id="chart-categories" style="width:100%;"></div>
+      </div>
+
+      <!-- Mapa do Rio de Janeiro -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:var(--cyan-glow);border:1px solid rgba(6,182,212,0.25);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 14 8 14s8-8.75 8-14a8 8 0 0 0-8-8z"/></svg>
+          </div>
+          <h2>Mapa de Estabelecimentos — Rio de Janeiro</h2>
+        </div>
+        <p class="card-desc">Clique em um marcador para ver os produtos comprados naquele estabelecimento.</p>
+        <div id="rj-map" style="width:100%; height:420px; border-radius:10px; overflow:hidden; border:1px solid var(--border);"></div>
+
+        <!-- Modal de produtos do marcador -->
+        <div id="map-modal" style="display:none; margin-top:16px; background:var(--bg2); border:1px solid var(--border2); border-radius:12px; padding:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div>
+              <div id="map-modal-name" style="font-size:1rem; font-weight:700; color:var(--text2);"></div>
+              <div id="map-modal-addr" style="font-size:0.8rem; color:var(--muted); margin-top:2px;"></div>
+            </div>
+            <button id="map-modal-close" class="secondary" style="padding:5px 12px; font-size:0.8rem;">Fechar</button>
+          </div>
+          <div class="table-wrapper">
+            <table id="map-modal-table">
+              <thead><tr><th>Produto</th><th>Qtd</th><th>Vl. Unit.</th><th>Vl. Total</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -1039,6 +1155,8 @@
 <!-- Polyfill / BarcodeDetector API Nativa + Html5Qrcode fallback -->
 <script src="https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/es/index.iife.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ===== Logica principal da aplicacao (IIFE para nao poluir o escopo global) ===== */
 (function () {
@@ -1051,7 +1169,8 @@
   var panels = {
     scan: document.getElementById("panel-scan"),
     product: document.getElementById("panel-product"),
-    search: document.getElementById("panel-search")
+    search: document.getElementById("panel-search"),
+    analytics: document.getElementById("panel-analytics")
   };
 
   function activateTab(tabKey) {
@@ -1871,6 +1990,203 @@
       executarBusca();
     }
   });
+
+  /* ===== PAINEL ANALYTICS ===== */
+  var analyticsData = null;
+  var currentTypeFilter = "all";
+  var rjMap = null;
+  var mapMarkers = [];
+  var geocodeCache = {};
+
+  var BAR_COLORS_STORE = ["#3b82f6","#06b6d4","#10b981","#8b5cf6","#f59e0b","#ef4444","#ec4899","#14b8a6","#f97316","#a78bfa"];
+  var BAR_COLORS_CAT   = ["#10b981","#06b6d4","#8b5cf6","#3b82f6","#f59e0b","#ef4444","#ec4899","#f97316","#14b8a6","#a78bfa","#22d3ee","#84cc16","#fbbf24","#fb923c","#e879f9"];
+  var TYPE_COLORS = { "Mercado": "#10b981", "Utili-casa": "#3b82f6", "Loja": "#f59e0b", "Outros": "#8b5cf6" };
+
+  function fmtBRL(v) {
+    return "R$ " + Number(v || 0).toFixed(2).replace(".", ",");
+  }
+
+  function renderBarChart(containerId, items, colorArr, maxItems) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (!items || items.length === 0) {
+      el.innerHTML = "<div class='empty'>Sem dados para exibir.</div>";
+      return;
+    }
+    var list = maxItems ? items.slice(0, maxItems) : items;
+    var maxVal = list.reduce(function (m, x) { return Math.max(m, x.total); }, 0) || 1;
+    var html = "<div class='bar-chart'>";
+    list.forEach(function (item, i) {
+      var pct = Math.max(2, (item.total / maxVal) * 100).toFixed(1);
+      var color = colorArr[i % colorArr.length];
+      html += "<div class='bar-row'>" +
+        "<div class='bar-label' title='" + item.name + "'>" + item.name + "</div>" +
+        "<div class='bar-track'><div class='bar-fill' style='width:" + pct + "%;background:" + color + ";'></div></div>" +
+        "<div class='bar-value'>" + fmtBRL(item.total) + "</div>" +
+        "<div class='bar-count'>" + (item.count || 0) + " itens</div>" +
+        "</div>";
+    });
+    html += "</div>";
+    el.innerHTML = html;
+  }
+
+  function renderAnalytics(data, typeFilter) {
+    var storeList = (data.storeList || []).map(function (s) { return { name: s.razaoSocial, total: s.total, count: s.count, tipo: s.tipo }; });
+    var storeTypeList = (data.storeTypeList || []).map(function (s) { return { name: s.name, total: s.total, count: s.count }; });
+    var categoryList = data.categoryList || [];
+
+    if (typeFilter && typeFilter !== "all") {
+      storeList = storeList.filter(function (s) { return s.tipo === typeFilter; });
+    }
+
+    renderBarChart("chart-store-type", storeTypeList, Object.values(TYPE_COLORS), 10);
+    renderBarChart("chart-stores", storeList, BAR_COLORS_STORE, 20);
+    renderBarChart("chart-categories", categoryList, BAR_COLORS_CAT, 20);
+  }
+
+  function initMap() {
+    if (rjMap) return;
+    rjMap = L.map("rj-map").setView([-22.9068, -43.1729], 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 18
+    }).addTo(rjMap);
+  }
+
+  function clearMapMarkers() {
+    mapMarkers.forEach(function (m) { m.remove(); });
+    mapMarkers = [];
+  }
+
+  function geocodeAddress(address, callback) {
+    if (geocodeCache[address]) { callback(geocodeCache[address]); return; }
+    var encoded = encodeURIComponent(address + ", Rio de Janeiro, Brasil");
+    fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encoded, {
+      headers: { "Accept-Language": "pt-BR" }
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (results) {
+        if (results && results.length > 0) {
+          var latlng = [parseFloat(results[0].lat), parseFloat(results[0].lon)];
+          geocodeCache[address] = latlng;
+          callback(latlng);
+        } else {
+          callback(null);
+        }
+      })
+      .catch(function () { callback(null); });
+  }
+
+  function openMapModal(store) {
+    var modal = document.getElementById("map-modal");
+    var nameEl = document.getElementById("map-modal-name");
+    var addrEl = document.getElementById("map-modal-addr");
+    var tbody = document.querySelector("#map-modal-table tbody");
+    nameEl.textContent = store.razaoSocial;
+    addrEl.textContent = store.endereco;
+    tbody.innerHTML = "";
+    (store.produtos || []).forEach(function (p) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + (p.nome || "-") + "</td>" +
+        "<td>" + (p.quantidade || 1) + " " + (p.unidade || "UN") + "</td>" +
+        "<td class='td-price'>" + (p.valorUnitario ? fmtBRL(p.valorUnitario) : "-") + "</td>" +
+        "<td class='td-price'>" + (p.valorTotal ? fmtBRL(p.valorTotal) : "-") + "</td>";
+      tbody.appendChild(tr);
+    });
+    modal.style.display = "block";
+    modal.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  document.getElementById("map-modal-close").addEventListener("click", function () {
+    document.getElementById("map-modal").style.display = "none";
+  });
+
+  function populateMap(storeDetails) {
+    initMap();
+    clearMapMarkers();
+    var pending = storeDetails.length;
+    if (pending === 0) return;
+
+    function processStore(store, idx) {
+      setTimeout(function () {
+        geocodeAddress(store.endereco, function (latlng) {
+          if (!latlng) return;
+          var color = TYPE_COLORS[store.tipo] || "#8b5cf6";
+          var svgIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">' +
+            '<path d="M14 0C6.27 0 0 6.27 0 14c0 9.75 14 22 14 22S28 23.75 28 14C28 6.27 21.73 0 14 0z" fill="' + color + '" stroke="rgba(0,0,0,0.4)" stroke-width="1.5"/>' +
+            '<circle cx="14" cy="14" r="5" fill="white" opacity="0.9"/>' +
+            '</svg>';
+          var icon = L.divIcon({
+            html: svgIcon,
+            iconSize: [28, 36],
+            iconAnchor: [14, 36],
+            popupAnchor: [0, -36],
+            className: ""
+          });
+          var marker = L.marker(latlng, { icon: icon }).addTo(rjMap);
+          marker.bindPopup(
+            "<b style='font-size:0.9rem;color:#e8f0f8;'>" + store.razaoSocial + "</b>" +
+            "<br><span style='font-size:0.75rem;color:#6b8aaa;'>" + store.endereco + "</span>" +
+            "<br><span style='font-size:0.78rem;color:" + color + ";font-weight:600;margin-top:4px;display:block;'>" + (store.tipo || "") + " · " + (store.produtos || []).length + " itens</span>" +
+            "<br><span style='font-size:0.78rem;color:#06b6d4;cursor:pointer;' onclick=\"document.dispatchEvent(new CustomEvent('openStoreModal',{detail:" + JSON.stringify({ razaoSocial: store.razaoSocial }) + "}))\">Ver produtos &rarr;</span>"
+          );
+          marker.on("click", function () {
+            document.dispatchEvent(new CustomEvent("openStoreModal", { detail: { razaoSocial: store.razaoSocial } }));
+          });
+          mapMarkers.push(marker);
+        });
+      }, idx * 250);
+    }
+
+    storeDetails.forEach(function (store, idx) { processStore(store, idx); });
+  }
+
+  document.addEventListener("openStoreModal", function (e) {
+    if (!analyticsData) return;
+    var name = e.detail.razaoSocial;
+    var store = (analyticsData.storeDetails || []).find(function (s) { return s.razaoSocial === name; });
+    if (store) openMapModal(store);
+  });
+
+  var analyticsTypeButtons = document.querySelectorAll(".analytics-type-btn");
+  analyticsTypeButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      analyticsTypeButtons.forEach(function (b) {
+        b.style.borderColor = "var(--border2)";
+        b.style.color = "var(--muted)";
+        b.style.background = "transparent";
+        b.classList.remove("active");
+      });
+      btn.style.borderColor = "var(--accent)";
+      btn.style.color = "#60a5fa";
+      btn.style.background = "var(--accent-glow)";
+      btn.classList.add("active");
+      currentTypeFilter = btn.dataset.type;
+      if (analyticsData) renderAnalytics(analyticsData, currentTypeFilter);
+    });
+  });
+
+  document.getElementById("btn-load-analytics").addEventListener("click", function () {
+    var loadingEl = document.getElementById("analytics-loading");
+    loadingEl.style.display = "inline";
+    fetch("/api/analytics")
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        loadingEl.style.display = "none";
+        if (!res.ok) { toast(res.error || "Erro ao carregar dados", true); return; }
+        analyticsData = res;
+        renderAnalytics(res, currentTypeFilter);
+        if (res.storeDetails && res.storeDetails.length > 0) {
+          populateMap(res.storeDetails);
+        }
+        toast("Dados carregados com sucesso!");
+      })
+      .catch(function () {
+        loadingEl.style.display = "none";
+        toast("Erro ao conectar ao servidor", true);
+      });
+  });
+
 })();
 </script>
 </body>
