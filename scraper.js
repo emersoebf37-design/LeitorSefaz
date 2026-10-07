@@ -1,7 +1,8 @@
 require("dotenv").config();
 const { initializeApp, getApps, cert } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const puppeteer = require("puppeteer");
+const { Builder, By, until } = require("selenium-webdriver");
+const chrome = require("selenium-webdriver/chrome");
 
 if (!getApps().length) {
   initializeApp({
@@ -15,8 +16,8 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-async function extractNotaData(page) {
-  return await page.evaluate(() => {
+async function extractNotaData(driver) {
+  return await driver.executeScript(() => {
     function cleanText(txt) {
       return (txt || "").replace(/\s+/g, " ").trim();
     }
@@ -114,14 +115,16 @@ function waitForCaptchaResolution(docRef) {
 }
 
 async function startScraper() {
-  console.log("Iniciando Puppeteer...");
-  const browser = await puppeteer.launch({
-    headless: false,
-    defaultViewport: null,
-    args: ["--start-maximized"]
-  });
+  console.log("Iniciando Selenium WebDriver...");
+  const options = new chrome.Options();
+  options.addArguments("--start-maximized");
+  options.addArguments("--disable-blink-features=AutomationControlled");
+  options.setUserPreferences({ credential_enable_service: false });
 
-  const page = await browser.newPage();
+  const driver = await new Builder()
+    .forBrowser("chrome")
+    .setChromeOptions(options)
+    .build();
 
   console.log("Ouvindo novas leituras no Firestore (coleção 'leituras')...");
 
@@ -141,27 +144,21 @@ async function startScraper() {
 
             if (data.tipo === "qrcode" && data.url) {
               console.log(`Navegando para a URL do QR Code: ${data.url}`);
-              await page.goto(data.url, { waitUntil: "networkidle2", timeout: 60000 });
+              await driver.get(data.url);
             } else if (data.tipo === "chave_acesso" && data.chave) {
               console.log(`Consultando chave de acesso: ${data.chave}`);
-              await page.goto("https://www.fazenda.rj.gov.br/nfce/consulta", {
-                waitUntil: "networkidle2",
-                timeout: 60000
-              });
+              await driver.get("https://www.fazenda.rj.gov.br/nfce/consulta");
 
-              const inputSelector = '#chaveAcesso';
-              await page.waitForSelector(inputSelector, { timeout: 15000 });
-              await page.click(inputSelector);
-              await page.type(inputSelector, data.chave, { delay: 20 });
+              const inputSelector = By.css("#chaveAcesso");
+              const inputEl = await driver.wait(until.elementLocated(inputSelector), 15000);
+              await inputEl.click();
+              await inputEl.sendKeys(data.chave);
 
-              // Verifica se existe imagem de CAPTCHA
-              const captchaImgSelector = 'img[src*="captcha"], #imgCaptcha, img.captcha, .captcha-img img';
-              const captchaEl = await page.$(captchaImgSelector);
-
-              if (captchaEl) {
+              const captchaElements = await driver.findElements(By.css('img[src*="captcha"], #imgCaptcha, img.captcha, .captcha-img img'));
+              if (captchaElements.length > 0) {
                 console.log("CAPTCHA detectado! Capturando imagem para envio ao cliente...");
-                const imgBuffer = await captchaEl.screenshot({ encoding: "base64" });
-                const base64Img = `data:image/png;base64,${imgBuffer}`;
+                const base64ImgStr = await captchaElements[0].takeScreenshot();
+                const base64Img = `data:image/png;base64,${base64ImgStr}`;
 
                 await doc.ref.update({
                   status: "aguardando_captcha",
@@ -172,23 +169,19 @@ async function startScraper() {
                 const respostaTexto = await waitForCaptchaResolution(doc.ref);
                 console.log(`Resposta do CAPTCHA recebida: ${respostaTexto}`);
 
-                const captchaInputSelector = 'input[name*="captcha"], input#captcha, input.captcha';
-                const capInput = await page.$(captchaInputSelector);
-                if (capInput) {
-                  await capInput.type(respostaTexto, { delay: 20 });
+                const captchaInputs = await driver.findElements(By.css('input[name*="captcha"], input#captcha, input.captcha'));
+                if (captchaInputs.length > 0) {
+                  await captchaInputs[0].sendKeys(respostaTexto);
                 }
               }
 
-              const btnSelector = '#consultarBtn';
-              await page.waitForSelector(btnSelector, { timeout: 15000 });
-              await Promise.all([
-                page.waitForNavigation({ waitUntil: "networkidle2", timeout: 45000 }).catch(() => {}),
-                page.click(btnSelector)
-              ]);
+              const btnSelector = By.css("#consultarBtn");
+              const btn = await driver.wait(until.elementLocated(btnSelector), 15000);
+              await btn.click();
             }
 
-            await page.waitForSelector(".txtCenter, #tabResult", { timeout: 30000 });
-            const extraidos = await extractNotaData(page);
+            await driver.wait(until.elementLocated(By.css(".txtCenter, #tabResult")), 30000);
+            const extraidos = await extractNotaData(driver);
 
             console.log("Dados extraídos:", JSON.stringify(extraidos, null, 2));
 
@@ -209,5 +202,5 @@ async function startScraper() {
 }
 
 startScraper().catch((err) => {
-  console.error("Falha ao iniciar o scraper:", err);
+  console.error("Falha ao iniciar o scraper com Selenium:", err);
 });

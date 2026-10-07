@@ -1,7 +1,9 @@
 {
   "dependencies": {
+    "chromedriver": "^155.0.0",
     "dotenv": "^18.0.1",
     "firebase-admin": "^14.4.0",
-    "puppeteer": "^25.11.0"
+    "puppeteer": "^25.11.0",
+    "selenium-webdriver": "^4.50.0"
   }
 }

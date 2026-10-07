@@ -80,23 +80,32 @@ async function buildAnalytics() {
     const nota = data.dados || {};
     const estab = nota.estabelecimento || {};
     const razaoSocial = estab.razaoSocial || "Não informada";
+    const cnpj = (estab.cnpj || "").replace(/\D/g, "") || razaoSocial;
     const endereco = estab.endereco || "";
     const tipo = classifyStore(razaoSocial);
     const produtos = Array.isArray(nota.produtos) ? nota.produtos : [];
 
-    if (!storeGroups[razaoSocial]) {
-      storeGroups[razaoSocial] = { razaoSocial, endereco, tipo, total: 0, count: 0, produtos: [] };
+    if (!storeGroups[cnpj]) {
+      storeGroups[cnpj] = { razaoSocial, cnpj: estab.cnpj || "", endereco, tipo, total: 0, count: 0, produtos: [] };
+    } else {
+      if (endereco.length > storeGroups[cnpj].endereco.length) {
+        storeGroups[cnpj].endereco = endereco;
+      }
     }
 
-    if (!storeDetails[razaoSocial]) {
-      storeDetails[razaoSocial] = { razaoSocial, endereco, tipo, produtos: [] };
+    if (!storeDetails[cnpj]) {
+      storeDetails[cnpj] = { razaoSocial, cnpj: estab.cnpj || "", endereco, tipo, produtos: [] };
+    } else {
+      if (endereco.length > storeDetails[cnpj].endereco.length) {
+        storeDetails[cnpj].endereco = endereco;
+      }
     }
 
     for (const prod of produtos) {
       const valor = prod.valorTotal || prod.valorUnitario || 0;
-      storeGroups[razaoSocial].total += valor;
-      storeGroups[razaoSocial].count += 1;
-      storeDetails[razaoSocial].produtos.push({
+      storeGroups[cnpj].total += valor;
+      storeGroups[cnpj].count += 1;
+      storeDetails[cnpj].produtos.push({
         nome: prod.nome || "",
         valorUnitario: prod.valorUnitario || 0,
         valorTotal: prod.valorTotal || 0,
